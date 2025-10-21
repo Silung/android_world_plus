@@ -35,6 +35,8 @@ class EpisodeConstants:
     SEED: The random seed to initialize the current episode's task.
     AUX_DATA: Additional data which can be passed from the task to
       process_episodes.
+    OPTIMAL_STEPS: The optimal number of steps to complete the task.
+    STEP_EFFICIENCY: The ratio of optimal steps vs executed steps.
   """
 
   EPISODE_DATA = 'episode_data'
@@ -51,3 +53,5 @@ class EpisodeConstants:
   FINISH_DTIME = 'finish_dtime'
   SEED = 'seed'
   AUX_DATA = 'aux_data'
+  OPTIMAL_STEPS = 'optimal_steps'
+  STEP_EFFICIENCY = 'step_efficiency'
