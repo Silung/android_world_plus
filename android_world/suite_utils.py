@@ -43,6 +43,41 @@ _TASK_TEMPLATE_COLUMN = 'task_template'
 _TASK_PROMPT_COLUMN = 'task_prompt'
 TaskEvalType = TypeVar('TaskEvalType', bound=task_eval.TaskEval)
 
+# Global cache for task metadata
+_TASK_METADATA_CACHE = None
+
+
+def _get_task_metadata() -> dict[str, dict[str, Any]]:
+  """Gets task metadata from task_metadata.json, cached globally."""
+  global _TASK_METADATA_CACHE
+  if _TASK_METADATA_CACHE is None:
+    df = _extract_task_metadata()
+    _TASK_METADATA_CACHE = df.to_dict('index')
+  return _TASK_METADATA_CACHE
+
+
+def _get_optimal_steps(task_name: str) -> int:
+  """Gets optimal steps for a task from metadata.
+  
+  Args:
+    task_name: Name of the task.
+    
+  Returns:
+    Optimal steps as integer, or 0 if not found.
+  """
+  metadata = _get_task_metadata()
+  if task_name in metadata:
+    optimal_steps_str = metadata[task_name].get('optimal_steps', '0')
+    try:
+      return int(optimal_steps_str)
+    except (ValueError, TypeError):
+      logging.warning(
+          f'Invalid optimal_steps value for task {task_name}: {optimal_steps_str}'
+      )
+      return 0
+  logging.warning(f'Task {task_name} not found in metadata')
+  return 0
+
 
 class Suite(dict[str, list[task_eval.TaskEval]]):
   """A suite of tasks.
@@ -268,6 +303,13 @@ def _run_task(
     if demo_mode:
       _display_success_overlay(env.controller, agent_successful)
 
+    # Calculate step efficiency
+    episode_length = len(interaction_results.step_data[constants.STEP_NUMBER])
+    optimal_steps = _get_optimal_steps(task.name)
+    step_efficiency = 0.0
+    if optimal_steps > 0 and episode_length > 0:
+      step_efficiency = min(optimal_steps / episode_length, 1.0)
+
     result = {
         constants.EpisodeConstants.GOAL: task.goal,
         constants.EpisodeConstants.TASK_TEMPLATE: task.name,
@@ -275,16 +317,25 @@ def _run_task(
         constants.EpisodeConstants.IS_SUCCESSFUL: agent_successful,
         constants.EpisodeConstants.RUN_TIME: time.time() - start,
         constants.EpisodeConstants.FINISH_DTIME: datetime.datetime.now(),
-        constants.EpisodeConstants.EPISODE_LENGTH: len(
-            interaction_results.step_data[constants.STEP_NUMBER]
-        ),
+        constants.EpisodeConstants.EPISODE_LENGTH: episode_length,
         constants.EpisodeConstants.AUX_DATA: interaction_results.aux_data,
         constants.EpisodeConstants.SCREEN_CONFIG: _get_screen_config(task),
         constants.EpisodeConstants.EXCEPTION_INFO: None,
         constants.EpisodeConstants.SEED: task.params[
             constants.EpisodeConstants.SEED
         ],
+        constants.EpisodeConstants.OPTIMAL_STEPS: optimal_steps,
+        constants.EpisodeConstants.STEP_EFFICIENCY: step_efficiency,
     }
+    
+    # Log step efficiency
+    _log_and_print(
+        'Step Efficiency: %.2f (Optimal: %d, Actual: %d)',
+        step_efficiency,
+        optimal_steps,
+        episode_length,
+    )
+    
     task.tear_down(env)
     return result
 
@@ -354,6 +405,8 @@ def _run_task_suite(
       constants.EpisodeConstants.RUN_TIME,
       constants.EpisodeConstants.EXCEPTION_INFO,
       constants.EpisodeConstants.AUX_DATA,
+      constants.EpisodeConstants.OPTIMAL_STEPS,
+      constants.EpisodeConstants.STEP_EFFICIENCY,
   ]
   completed_tasks, failed_tasks = _get_task_info(
       checkpointer.load(fields=metadata_fields)
@@ -555,6 +608,8 @@ def _create_failed_result(
       constants.EpisodeConstants.EPISODE_LENGTH: np.nan,
       constants.EpisodeConstants.EXCEPTION_INFO: exception,
       constants.EpisodeConstants.AUX_DATA: None,
+      constants.EpisodeConstants.OPTIMAL_STEPS: np.nan,
+      constants.EpisodeConstants.STEP_EFFICIENCY: np.nan,
   }
 
 
@@ -671,11 +726,17 @@ def process_episodes(
 
   df = pd.DataFrame(list(episodes))
 
-  # Add exeception info for backwards compatibility.
+  # Add fields for backwards compatibility.
   df = df.assign(**{
       constants.EpisodeConstants.EXCEPTION_INFO: df.get(
           constants.EpisodeConstants.EXCEPTION_INFO, np.nan
-      )
+      ),
+      constants.EpisodeConstants.OPTIMAL_STEPS: df.get(
+          constants.EpisodeConstants.OPTIMAL_STEPS, 0
+      ),
+      constants.EpisodeConstants.STEP_EFFICIENCY: df.get(
+          constants.EpisodeConstants.STEP_EFFICIENCY, 0.0
+      ),
   })
 
   result_df = df.groupby(
@@ -687,6 +748,7 @@ def process_episodes(
       constants.EpisodeConstants.EXCEPTION_INFO: [
           ('none_count', lambda x: x.notnull().sum())
       ],
+      constants.EpisodeConstants.STEP_EFFICIENCY: 'mean',
   })
   result_df = result_df.sort_index()
   result_df.columns = [
@@ -695,9 +757,13 @@ def process_episodes(
       'mean_episode_length',
       'total_runtime_s',
       'num_fail_trials',
+      'mean_step_efficiency',
   ]
   result_df['total_runtime_s'] = result_df['total_runtime_s'].map(
       lambda x: float('{:.1f}'.format(x))
+  )
+  result_df['mean_step_efficiency'] = result_df['mean_step_efficiency'].map(
+      lambda x: float('{:.3f}'.format(x))
   )
 
   # Extract metadata and merge with the results table.

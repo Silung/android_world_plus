@@ -34,7 +34,16 @@ Key features of AndroidWorld include:
 * 🖥️ **Integration with MiniWoB++** web-based tasks
 
 See demo videos on our [website](https://google-research.github.io/android_world/).
-o
+
+## 📊 Enhanced Evaluation Metrics
+
+AndroidWorld+ introduces **Step Efficiency** as a new evaluation metric:
+
+- **Step Efficiency** - Measures how efficiently an agent completes a task
+  - Formula: `step_efficiency = min(optimal_steps / actual_steps, 1.0)`
+  - Range: 0.0 to 1.0 (higher is better)
+  - Automatically calculated for each task using `optimal_steps` from task_metadata.json
+  - Displayed in episode logs and aggregated statistics
 
 ## Installation
 
