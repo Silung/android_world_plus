@@ -104,7 +104,7 @@ class BrowserTask(task_eval.TaskEval):
       return 0.0
 
     for element in state.ui_elements:
-      if element.text == 'Success!':
+      if 'Success!' in element.text:
         return 1.0
     return 0.0
 
@@ -588,7 +588,7 @@ class BrowserSudoku(BrowserTask):
 <body>
   <h1>4×4 Sudoku</h1>
   <div class="instructions">
-    Fill each row, column, and 2×2 box with numbers 1-4
+    Fill each row, column, and 2×2 box with numbers 1-4. No duplicate in any row, column, or box.
   </div>
 
   <div id="sudoku-grid"></div>
@@ -1741,9 +1741,9 @@ class BrowserAdBlock(BrowserTask):
       <h2>🎁 Special Offer!</h2>
       <p>Get 50% OFF on our premium subscription!</p>
       <p>Limited time offer - Don't miss out!</p>
-      <button class="ad-button" onclick="closeAd()">Learn More</button>
-      <button class="ad-button" onclick="closeAd()">No Thanks</button>
-      <p class="small-text">Click the × button or any option to close</p>
+      <button class="ad-button" id="learn-more">Learn More</button>
+      <button class="ad-button" id="no-thanks">No Thanks</button>
+      <p class="small-text">Terms and conditions apply</p>
     </div>
   </div>
 
@@ -1762,34 +1762,73 @@ class BrowserAdBlock(BrowserTask):
       }
     }
 
-    const rng = new SeededRNG(%%SEED%%);
-    
+    const rng = new SeededRNG(42);
+
     // Generate random secret code (4 characters: letters and numbers)
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let secretCode = '';
     for (let i = 0; i < 4; i++) {
       secretCode += chars.charAt(Math.floor(rng.random() * chars.length));
     }
-    
+
     document.getElementById('secret-code').textContent = secretCode;
 
     function closeAd() {
       document.getElementById('ad-overlay').style.display = 'none';
     }
 
-    // Close button functionality
-    document.getElementById('close-ad').addEventListener('click', closeAd);
+    // Ensure DOM is ready before binding
+    document.addEventListener('DOMContentLoaded', () => {
+      const closeBtn = document.getElementById('close-ad');
+      const noThanksBtn = document.getElementById('no-thanks');
+      const adOverlay = document.getElementById('ad-overlay');
+      const learnMoreBtn = document.getElementById('learn-more');
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', closeAd);
+      }
+
+      if (noThanksBtn) {
+        noThanksBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          try {
+            const url = 'https://github.com/Silung/android_world_plus';
+            const w = window.open(url, '_blank');
+            if (!w) {
+              // Fallback: same-tab navigation if pop-up blocked
+              window.location.href = url;
+              return;
+            }
+          } finally {
+            closeAd();
+          }
+        });
+      }
+
+      if (learnMoreBtn) {
+        learnMoreBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          window.location.href = 'https://github.com/Silung/android_world_plus';
+        });
+      }
+
+      // Optional: Also allow clicking outside ad to close (improve UX)
+      if (adOverlay) {
+        adOverlay.addEventListener('click', function(e) {
+          if (e.target === adOverlay) {
+            closeAd();
+          }
+        });
+      }
+    });
 
     // Handle form submission
     document.getElementById('code-form').addEventListener('submit', function(e) {
       e.preventDefault();
-      
       const enteredCode = document.getElementById('code-input').value.toUpperCase();
-      
       if (enteredCode === secretCode) {
-        document.body.innerHTML = '<h1>Success!</h1>';
+        document.body.innerHTML = '<div style="text-align:center; padding:50px; font-size:24px;">✅ Success! Access Granted.</div>';
       } else {
-        // Show error message
         alert('Incorrect code. Please try again.');
       }
     });
