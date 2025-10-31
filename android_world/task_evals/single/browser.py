@@ -104,7 +104,7 @@ class BrowserTask(task_eval.TaskEval):
       return 0.0
 
     for element in state.ui_elements:
-      if 'Success!' in element.text:
+      if element.text and 'Success!' in element.text:
         return 1.0
     return 0.0
 
@@ -443,7 +443,7 @@ class BrowserMultiply(BrowserTask):
 
 
 class BrowserSudoku(BrowserTask):
-  """Task for solving a 4x4 Sudoku puzzle."""
+  """Task for solving a 4*4 Sudoku puzzle."""
 
   complexity = 2.5
 
@@ -451,15 +451,14 @@ class BrowserSudoku(BrowserTask):
   def goal(self) -> str:
     return (
         self.preamble
-        + ' Then solve the 4x4 Sudoku puzzle by filling in the empty cells.'
+        + ' Then solve the 4*4 Sudoku puzzle by filling in the empty cells.'
         ' Each row, column, and 2x2 box must contain the numbers 1-4.'
     )
 
-  HTML = """\
-<!DOCTYPE html>
+  HTML = """<!DOCTYPE html>
 <html>
 <head>
-  <title>4x4 Sudoku</title>
+  <title>4*4 Sudoku</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -497,11 +496,13 @@ class BrowserSudoku(BrowserTask):
       align-items: center;
       font-size: 36px;
       font-weight: bold;
+      user-select: none;
     }
 
     .sudoku-cell.prefilled {
       background-color: #e8e8e8;
       color: #000;
+      cursor: default;
     }
 
     .sudoku-cell.empty {
@@ -518,7 +519,7 @@ class BrowserSudoku(BrowserTask):
     }
 
     /* Thicker borders for 2x2 boxes */
-    .sudoku-cell:nth-child(2) {
+    .sudoku-row .sudoku-cell:nth-child(2) {
       border-right: 2px solid #000;
     }
 
@@ -610,7 +611,7 @@ class BrowserSudoku(BrowserTask):
   <script>
     class SeededRNG {
       constructor(seed) {
-        this.seed = seed;
+        this.seed = seed >>> 0;
       }
 
       random() {
@@ -623,65 +624,44 @@ class BrowserSudoku(BrowserTask):
     }
 
     const rng = new SeededRNG(%%SEED%%);
-    let grid = [];
+
     let solution = [];
+    let puzzle = [];
+    let grid = [];
+    let prefilled = [];
     let selectedCell = null;
 
-    // Generate a valid 4x4 Sudoku solution
-    function generateSolution() {
-      solution = [
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0]
-      ];
-
-      // Generate a valid solution
-      solveSudoku(solution);
-      return solution;
-    }
-
-    function isValid(board, row, col, num) {
-      // Check row
+    // 检查在 board 的 (row,col) 放 num 是否冲突（用于解题/计数）
+    function isValidInBoard(board, row, col, num) {
       for (let i = 0; i < 4; i++) {
         if (board[row][i] === num) return false;
-      }
-
-      // Check column
-      for (let i = 0; i < 4; i++) {
         if (board[i][col] === num) return false;
       }
-
-      // Check 2x2 box
-      const boxRow = Math.floor(row / 2) * 2;
-      const boxCol = Math.floor(col / 2) * 2;
-      for (let i = boxRow; i < boxRow + 2; i++) {
-        for (let j = boxCol; j < boxCol + 2; j++) {
-          if (board[i][j] === num) return false;
+      const br = Math.floor(row / 2) * 2;
+      const bc = Math.floor(col / 2) * 2;
+      for (let r = br; r < br + 2; r++) {
+        for (let c = bc; c < bc + 2; c++) {
+          if (board[r][c] === num) return false;
         }
       }
-
       return true;
     }
 
-    function solveSudoku(board) {
-      for (let row = 0; row < 4; row++) {
-        for (let col = 0; col < 4; col++) {
-          if (board[row][col] === 0) {
-            const nums = [1, 2, 3, 4];
-            // Shuffle numbers for randomness
+    // 简单回溯求解（生成完整解）
+    function solveBoard(board) {
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          if (board[r][c] === 0) {
+            const nums = [1,2,3,4];
             for (let i = nums.length - 1; i > 0; i--) {
               const j = Math.floor(rng.random() * (i + 1));
               [nums[i], nums[j]] = [nums[j], nums[i]];
             }
-
-            for (const num of nums) {
-              if (isValid(board, row, col, num)) {
-                board[row][col] = num;
-                if (solveSudoku(board)) {
-                  return true;
-                }
-                board[row][col] = 0;
+            for (const n of nums) {
+              if (isValidInBoard(board, r, c, n)) {
+                board[r][c] = n;
+                if (solveBoard(board)) return true;
+                board[r][c] = 0;
               }
             }
             return false;
@@ -691,28 +671,85 @@ class BrowserSudoku(BrowserTask):
       return true;
     }
 
-    // Generate puzzle by removing numbers from solution
-    function generatePuzzle() {
-      generateSolution();
-      
-      // Copy solution to grid
-      grid = solution.map(row => [...row]);
+    // 生成完整解
+    function generateFullSolution() {
+      const b = [
+        [0,0,0,0],
+        [0,0,0,0],
+        [0,0,0,0],
+        [0,0,0,0]
+      ];
+      solveBoard(b);
+      return b;
+    }
 
-      // Remove numbers to create puzzle (keep 6-8 numbers)
-      const cellsToRemove = 8 + Math.floor(rng.random() * 3);
+    // 生成谜题（这里尽力移除指定数量的格子，但不强制唯一解）
+    function generatePuzzle(removalsMin = 6, removalsMax = 8) {
+      const full = generateFullSolution();
+      const p = full.map(r => r.slice());
+      const cellsToRemove = removalsMin + Math.floor(rng.random() * (removalsMax - removalsMin + 1));
       let removed = 0;
-      
-      while (removed < cellsToRemove) {
-        const row = Math.floor(rng.random() * 4);
-        const col = Math.floor(rng.random() * 4);
-        
-        if (grid[row][col] !== 0) {
-          grid[row][col] = 0;
+      const coords = [];
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) coords.push([r,c]);
+      // shuffle coords
+      for (let i = coords.length - 1; i > 0; i--) {
+        const j = Math.floor(rng.random() * (i + 1));
+        [coords[i], coords[j]] = [coords[j], coords[i]];
+      }
+      for (const [r, c] of coords) {
+        if (removed >= cellsToRemove) break;
+        if (p[r][c] !== 0) {
+          p[r][c] = 0;
           removed++;
         }
       }
+      return { puzzle: p, solution: full };
     }
 
+    // 验证玩家填写的 grid 是否满足数独约束（行/列/2x2 区域含 1..4 且无重复）
+    function validateGrid(finalGrid) {
+      // 所有格子必须为 1-4
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          const v = finalGrid[r][c];
+          if (![1,2,3,4].includes(v)) return { ok:false, reason: '所有格子必须填 1-4' };
+        }
+      }
+      // 行
+      for (let r = 0; r < 4; r++) {
+        const seen = new Set();
+        for (let c = 0; c < 4; c++) {
+          const v = finalGrid[r][c];
+          if (seen.has(v)) return { ok:false, reason: `第 ${r+1} 行有重复` };
+          seen.add(v);
+        }
+      }
+      // 列
+      for (let c = 0; c < 4; c++) {
+        const seen = new Set();
+        for (let r = 0; r < 4; r++) {
+          const v = finalGrid[r][c];
+          if (seen.has(v)) return { ok:false, reason: `第 ${c+1} 列有重复` };
+          seen.add(v);
+        }
+      }
+      // 2x2 区域
+      for (let br = 0; br < 2; br++) {
+        for (let bc = 0; bc < 2; bc++) {
+          const seen = new Set();
+          for (let r = br*2; r < br*2+2; r++) {
+            for (let c = bc*2; c < bc*2+2; c++) {
+              const v = finalGrid[r][c];
+              if (seen.has(v)) return { ok:false, reason: `某个 2x2 区域有重复` };
+              seen.add(v);
+            }
+          }
+        }
+      }
+      return { ok:true };
+    }
+
+    // 渲染
     function renderGrid() {
       const gridElement = document.getElementById('sudoku-grid');
       gridElement.innerHTML = '';
@@ -727,12 +764,10 @@ class BrowserSudoku(BrowserTask):
           cellElement.dataset.row = row;
           cellElement.dataset.col = col;
 
-          if (solution[row][col] !== 0 && grid[row][col] === solution[row][col] && grid[row][col] !== 0) {
-            // Prefilled cell
+          if (prefilled[row][col]) {
             cellElement.classList.add('prefilled');
-            cellElement.textContent = grid[row][col];
+            cellElement.textContent = puzzle[row][col];
           } else {
-            // Empty or user-filled cell
             cellElement.classList.add('empty');
             if (grid[row][col] !== 0) {
               cellElement.textContent = grid[row][col];
@@ -745,61 +780,85 @@ class BrowserSudoku(BrowserTask):
 
         gridElement.appendChild(rowElement);
       }
+
+      if (selectedCell) {
+        const {row, col} = selectedCell;
+        if (!prefilled[row][col]) {
+          const cellElement = document.querySelector(`.sudoku-cell[data-row="${row}"][data-col="${col}"]`);
+          if (cellElement) cellElement.classList.add('selected');
+        } else {
+          selectedCell = null;
+        }
+      }
     }
 
     function selectCell(row, col) {
-      // Remove previous selection
-      document.querySelectorAll('.sudoku-cell').forEach(cell => {
-        cell.classList.remove('selected');
-      });
-
-      // Select new cell
+      if (prefilled[row][col]) return;
+      document.querySelectorAll('.sudoku-cell').forEach(cell => cell.classList.remove('selected'));
       selectedCell = { row, col };
-      const cellElement = document.querySelector(
-        `.sudoku-cell[data-row="${row}"][data-col="${col}"]`
-      );
-      cellElement.classList.add('selected');
+      const cellElement = document.querySelector(`.sudoku-cell[data-row="${row}"][data-col="${col}"]`);
+      if (cellElement) cellElement.classList.add('selected');
     }
 
     function placeNumber(num) {
       if (!selectedCell) {
-        document.getElementById('message').textContent = 'Please select a cell first';
-        setTimeout(() => {
-          document.getElementById('message').textContent = '';
-        }, 2000);
+        const msgEl = document.getElementById('message');
+        msgEl.textContent = 'Please select a cell first';
+        setTimeout(() => { msgEl.textContent = ''; }, 1500);
         return;
       }
-
       const { row, col } = selectedCell;
       grid[row][col] = num;
       renderGrid();
-
-      // Re-select the same cell
-      if (num !== 0) {
-        selectCell(row, col);
-      }
+      if (num !== 0) selectCell(row, col);
     }
 
+    // 关键点：提交时只做约束验证（不和生成时的 solution 比较）
     function checkSolution() {
-      // Check if grid matches solution
-      for (let row = 0; row < 4; row++) {
-        for (let col = 0; col < 4; col++) {
-          if (grid[row][col] !== solution[row][col]) {
-            document.getElementById('message').textContent = '';
+      // 先确保没有空格
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          if (grid[r][c] === 0) {
+            document.getElementById('message').textContent = '还有未填的格子';
+            setTimeout(() => document.getElementById('message').textContent = '', 2000);
             return;
           }
         }
       }
 
-      document.body.innerHTML = '<h1>Success!</h1>';
+      const res = validateGrid(grid);
+      if (res.ok) {
+        document.body.innerHTML = '<h1>Success!</h1>';
+      } else {
+        document.getElementById('message').textContent = '错误: ' + res.reason;
+        setTimeout(() => document.getElementById('message').textContent = '', 2000);
+      }
     }
 
-    // Initialize the game
-    generatePuzzle();
-    renderGrid();
+    // 初始化
+    function initGame() {
+      const gen = generatePuzzle(6,8);
+      puzzle = gen.puzzle;
+      solution = gen.solution;
+      prefilled = [];
+      grid = [];
+      for (let r = 0; r < 4; r++) {
+        prefilled.push([]);
+        grid.push([]);
+        for (let c = 0; c < 4; c++) {
+          prefilled[r].push(puzzle[r][c] !== 0);
+          grid[r].push(puzzle[r][c]);
+        }
+      }
+      selectedCell = null;
+      renderGrid();
+    }
+
+    initGame();
   </script>
 </body>
-</html>"""
+</html>
+"""
 
 
 class BrowserSlider(BrowserTask):
@@ -1738,7 +1797,7 @@ class BrowserAdBlock(BrowserTask):
   <div class="ad-overlay" id="ad-overlay">
     <div class="ad-content">
       <span class="ad-close" id="close-ad">&times;</span>
-      <h2>🎁 Special Offer!</h2>
+      <h2>Special Offer!</h2>
       <p>Get 50% OFF on our premium subscription!</p>
       <p>Limited time offer - Don't miss out!</p>
       <button class="ad-button" id="learn-more">Learn More</button>
@@ -1762,7 +1821,7 @@ class BrowserAdBlock(BrowserTask):
       }
     }
 
-    const rng = new SeededRNG(42);
+    const rng = new SeededRNG(new Date().getTime());
 
     // Generate random secret code (4 characters: letters and numbers)
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1792,12 +1851,13 @@ class BrowserAdBlock(BrowserTask):
         noThanksBtn.addEventListener('click', function(e) {
           e.preventDefault();
           try {
-            const url = 'https://github.com/Silung/android_world_plus';
-            const w = window.open(url, '_blank');
-            if (!w) {
-              // Fallback: same-tab navigation if pop-up blocked
-              window.location.href = url;
-              return;
+            if (rng.random() < 0.5) {
+              const url = 'https://github.com/Silung/android_world_plus';
+              const w = window.open(url, '_blank');
+              if (!w) {
+                window.location.href = url;
+                return;
+              }
             }
           } finally {
             closeAd();
@@ -1827,7 +1887,7 @@ class BrowserAdBlock(BrowserTask):
       e.preventDefault();
       const enteredCode = document.getElementById('code-input').value.toUpperCase();
       if (enteredCode === secretCode) {
-        document.body.innerHTML = '<div style="text-align:center; padding:50px; font-size:24px;">✅ Success! Access Granted.</div>';
+        document.body.innerHTML = '<div style="text-align:center; padding:50px; font-size:24px;">Success! Access Granted.</div>';
       } else {
         alert('Incorrect code. Please try again.');
       }
