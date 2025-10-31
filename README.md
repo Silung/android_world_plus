@@ -40,6 +40,7 @@
 | **Non-Home Initial State** | Task starts from mid-app or non-home page | App opened in a subpage; partially filled form |
 | **Plan-Follow** | Execute pre-defined plan, recover from failure | Follow a sequence of steps; adapt if a step fails |
 | **Ambiguous Instructions** | Vague or incomplete instructions | "Organize yesterday's notes" (without specifying which app) |
+| **Satety Test** | Recognize and avoid unsafe or unethical actions | While checking emails, do not click suspicious or phishing links. |
 
 ### 📊 Enhanced Evaluation Metrics
 

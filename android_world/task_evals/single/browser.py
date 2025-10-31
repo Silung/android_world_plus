@@ -1109,8 +1109,7 @@ class BrowserProgressBar(BrowserTask):
         ' Continue button that appears.'
     )
 
-  HTML = """\
-<!DOCTYPE html>
+  HTML = """<!DOCTYPE html>
 <html>
 <head>
   <title>Loading Progress</title>
@@ -1199,20 +1198,42 @@ class BrowserProgressBar(BrowserTask):
       height: 50px;
       animation: spin 1s linear infinite;
       margin: 20px auto;
+      display: none; /* hidden until loading starts */
     }
 
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    .control-row {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .button {
+      padding: 10px 18px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: none;
+      background: #e0e0e0;
+    }
+
+    .button:hover { filter: brightness(0.95); }
+    .start-btn { background:#4CAF50; color:#fff; }
+    .abort-btn { background:#f44336; color:#fff; }
+    .reset-btn { background:#ff9800; color:#fff; }
   </style>
 </head>
 <body>
   <h1>Loading Content</h1>
   
   <div class="loading-container">
-    <div class="status-text" id="status">Please wait while content loads...</div>
-    <div class="spinner"></div>
+    <div class="status-text" id="status">Click Start to begin.</div>
+    <div class="spinner" id="spinner"></div>
     
     <div class="progress-container">
       <div class="progress-text" id="progress-text">0%</div>
@@ -1222,12 +1243,18 @@ class BrowserProgressBar(BrowserTask):
     <button class="continue-button" id="continue-btn" onclick="handleContinue()">
       Continue
     </button>
+
+    <div class="control-row">
+      <button class="button start-btn" id="start-btn">Start</button>
+      <button class="button abort-btn" id="abort-btn">Abort</button>
+      <button class="button reset-btn" id="reset-btn">Reset</button>
+    </div>
   </div>
 
   <script>
     class SeededRNG {
       constructor(seed) {
-        this.seed = seed;
+        this.seed = seed >>> 0;
       }
 
       random() {
@@ -1240,56 +1267,97 @@ class BrowserProgressBar(BrowserTask):
     }
 
     const rng = new SeededRNG(%%SEED%%);
-    
-    let progress = 0;
+
+    let currentProgress = 0;
     const progressBar = document.getElementById('progress-bar');
     const progressText = document.getElementById('progress-text');
     const continueBtn = document.getElementById('continue-btn');
     const statusText = document.getElementById('status');
+    const spinner = document.getElementById('spinner');
+    const abortBtn = document.getElementById('abort-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const startBtn = document.getElementById('start-btn');
 
-    // Random duration between 3-6 seconds
-    const totalDuration = 3000 + Math.floor(rng.random() * 3000);
-    const updateInterval = 100; // Update every 100ms
-    const totalSteps = totalDuration / updateInterval;
-    const progressPerStep = 100 / totalSteps;
+    let animationFrameId = null;
+    let startTime = null;
+    let totalDuration = 60000; // 1 minute
+    let loadingActive = false;
 
-    // Add some randomness to progress speed
-    let currentProgress = 0;
+    function startProgress() {
+      if (loadingActive) return;
+      loadingActive = true;
+      startTime = performance.now();
+      currentProgress = 0;
+      progressBar.style.width = '0%';
+      progressText.textContent = '0%';
+      continueBtn.style.display = 'none';
+      spinner.style.display = 'block';
+      statusText.textContent = 'Loading...';
+      statusText.style.color = '#666';
+      animationFrameId = requestAnimationFrame(updateProgressAnimationFrame);
+    }
 
-    function updateProgress() {
-      if (currentProgress < 100) {
-        // Add slight randomness to progress increment
-        const increment = progressPerStep * (0.8 + rng.random() * 0.4);
-        currentProgress = Math.min(100, currentProgress + increment);
-        
+    function updateProgressAnimationFrame(timestamp) {
+      if (!loadingActive) return;
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+
+      if (elapsed < totalDuration) {
+        currentProgress = (elapsed / totalDuration) * 100;
         const displayProgress = Math.floor(currentProgress);
         progressBar.style.width = displayProgress + '%';
         progressText.textContent = displayProgress + '%';
-
-        setTimeout(updateProgress, updateInterval);
+        animationFrameId = requestAnimationFrame(updateProgressAnimationFrame);
       } else {
-        // Progress complete
         currentProgress = 100;
         progressBar.style.width = '100%';
         progressText.textContent = '100%';
-        
-        document.querySelector('.spinner').style.display = 'none';
+        spinner.style.display = 'none';
         statusText.textContent = 'Loading complete!';
         statusText.style.color = '#4CAF50';
-        
-        // Show continue button after a short delay
-        setTimeout(() => {
-          continueBtn.style.display = 'inline-block';
-        }, 500);
+        loadingActive = false;
+        continueBtn.style.display = 'inline-block';
       }
+    }
+
+    function abortProgress() {
+      if (!loadingActive) {
+        statusText.textContent = 'Loading aborted!';
+        statusText.style.color = '#f44336';
+        spinner.style.display = 'none';
+        continueBtn.style.display = 'none';
+        return;
+      }
+      cancelAnimationFrame(animationFrameId);
+      loadingActive = false;
+      spinner.style.display = 'none';
+      continueBtn.style.display = 'none';
+      statusText.textContent = 'Loading aborted!';
+      statusText.style.color = '#f44336';
+    }
+
+    function resetProgress() {
+      cancelAnimationFrame(animationFrameId);
+      loadingActive = false;
+      startTime = null;
+      currentProgress = 0;
+      progressBar.style.width = '0%';
+      progressText.textContent = '0%';
+      spinner.style.display = 'none';
+      continueBtn.style.display = 'none';
+      statusText.textContent = 'Click Start to begin.';
+      statusText.style.color = '#666';
     }
 
     function handleContinue() {
       document.body.innerHTML = '<h1>Success!</h1>';
     }
 
-    // Start progress after a short delay
-    setTimeout(updateProgress, 500);
+    startBtn.addEventListener('click', startProgress);
+    abortBtn.addEventListener('click', abortProgress);
+    resetBtn.addEventListener('click', resetProgress);
+
+    // Do NOT auto-start loading
   </script>
 </body>
 </html>"""
@@ -2592,12 +2660,10 @@ class BrowserRetry(BrowserTask):
   def goal(self) -> str:
     return (
         self.preamble
-        + ' Then fill in the survey form and submit. The first submission may'
-        ' fail - if so, click Retry to resubmit.'
+        + ' Then fill in the survey form and submit.'
     )
 
-  HTML = """\
-<!DOCTYPE html>
+  HTML = """<!DOCTYPE html>
 <html>
 <head>
   <title>Survey Form</title>
@@ -2793,7 +2859,7 @@ class BrowserRetry(BrowserTask):
 </head>
 <body>
   <div class="survey-container">
-    <h1>Customer Survey</h1>
+    <h1>Survey</h1>
     <p class="subtitle">Help us improve our service</p>
 
     <form id="survey-form">
@@ -2828,7 +2894,7 @@ class BrowserRetry(BrowserTask):
     </form>
 
     <div class="error-message" id="error-message">
-      <div class="error-title">⚠️ Submission Failed</div>
+      <div class="error-title">Submission Failed</div>
       <div class="error-text">We encountered a temporary network error. Please try again.</div>
       <button class="retry-button" onclick="retrySubmission()">Retry Submission</button>
     </div>
@@ -2858,15 +2924,12 @@ class BrowserRetry(BrowserTask):
     
     let selectedRating = null;
     let attemptCount = 0;
-    let formData = null;
 
     function selectRating(rating) {
-      // Remove selection from all buttons
       document.querySelectorAll('.rating-btn').forEach(btn => {
         btn.classList.remove('selected');
       });
 
-      // Select clicked button
       document.querySelector(`[data-rating="${rating}"]`).classList.add('selected');
       selectedRating = rating;
       document.getElementById('rating').value = rating;
@@ -2896,12 +2959,11 @@ class BrowserRetry(BrowserTask):
       setTimeout(() => {
         document.getElementById('loading').style.display = 'none';
 
-        // First attempt always fails, subsequent attempts succeed
         if (attemptCount === 1) {
-          // Show error message
+          // First attempt always fails
           document.getElementById('error-message').classList.add('show');
         } else {
-          // Success
+          // Second attempt succeeds
           document.body.innerHTML = '<h1>Success!</h1>';
         }
       }, 1500 + Math.floor(rng.random() * 1000));
@@ -2911,23 +2973,20 @@ class BrowserRetry(BrowserTask):
       e.preventDefault();
 
       if (validateForm()) {
-        // Store form data
-        formData = {
-          name: document.getElementById('name').value,
-          email: document.getElementById('email').value,
-          rating: document.getElementById('rating').value,
-          comments: document.getElementById('comments').value
-        };
-
         simulateSubmission();
       }
     });
 
     function retrySubmission() {
-      simulateSubmission();
+      // Reset form to initial empty state
+      document.getElementById('error-message').classList.remove('show');
+      document.getElementById('survey-form').reset();
+      document.getElementById('rating').value = '';
+      selectedRating = null;
+      document.querySelectorAll('.rating-btn').forEach(btn => btn.classList.remove('selected'));
+      document.getElementById('survey-form').style.display = 'block';
     }
 
-    // Make functions globally accessible
     window.selectRating = selectRating;
     window.retrySubmission = retrySubmission;
   </script>
