@@ -452,7 +452,7 @@ class BrowserSudoku(BrowserTask):
     return (
         self.preamble
         + ' Then solve the 4*4 Sudoku puzzle by filling in the empty cells.'
-        ' Each row, column, and 2x2 box must contain the numbers 1-4.'
+        ' Each row, column, and 2*2 box must contain the numbers 1-4.'
     )
 
   HTML = """<!DOCTYPE html>
@@ -1356,8 +1356,6 @@ class BrowserProgressBar(BrowserTask):
     startBtn.addEventListener('click', startProgress);
     abortBtn.addEventListener('click', abortProgress);
     resetBtn.addEventListener('click', resetProgress);
-
-    // Do NOT auto-start loading
   </script>
 </body>
 </html>"""
@@ -1367,51 +1365,98 @@ class BrowserPopupDismiss(BrowserTask):
   """Task for dismissing popup dialogs while completing a form."""
 
   complexity = 2.8
+  schema = {
+      "type": "object",
+      "properties": {
+          "name": {"type": "string"},
+          "email": {"type": "string"},
+          "country": {"type": "string"},
+      },
+      "required": ["name", "email", "country"],
+  }
+  template = (
+      "Then fill in the form with following values and submit:\n"
+      "Name: {name}, Email: {email}, Country: {country}."
+  )
+
+  @classmethod
+  def generate_random_params(cls) -> dict[str, str]:
+    name_email_pairs = [
+        ("Alice Smith", "alice.smith@test.com"),
+        ("Bob Johnson", "bob.j@test.com"),
+        ("Charlie Brown", "charlie.b@test.com"),
+        ("David Miller", "david.m@test.com"),
+        ("Eve Davis", "eve.d@test.com"),
+        ("Frank Garcia", "frank.g@test.com"),
+        ("Grace Rodriguez", "grace.r@test.com"),
+        ("Henry Martinez", "henry.m@test.com"),
+        ("Ivy Hernandez", "ivy.h@test.com"),
+        ("Jack Lopez", "jack.l@test.com"),
+    ]
+    countries = [
+        "US", "Canada", "UK", "Australia",
+        "Germany", "France", "Japan", "China", "India", "Brazil",
+    ]
+
+    name, email = random.choice(name_email_pairs)
+    country = random.choice(countries)
+
+    params = {
+        "name": name,
+        "email": email,
+        "country": country,
+        'browser_task_seed': random.randint(0, 2**32 - 1)
+    }
+    return params
 
   @property
   def goal(self) -> str:
-    return (
-        self.preamble
-        + ' Then fill in the form with any values and submit. You may need to'
-        ' close popup dialogs that appear.'
-    )
+    return self.preamble + self.template.format(**self.params)
 
-  HTML = """\
-<!DOCTYPE html>
+  HTML = """<!DOCTYPE html>
 <html>
 <head>
   <title>Form with Popups</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 50px;
+      margin: 0;
+      padding: 0;
       background-color: #f5f5f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     h1 {
       text-align: center;
-      font-size: 36px;
-      margin-bottom: 20px;
+      font-size: 28px;
+      margin: 20px 0;
       color: #333;
     }
 
     .form-container {
+      width: 90%;
       max-width: 500px;
-      margin: 0 auto;
-      padding: 30px;
+      padding: 20px;
       background-color: white;
       border-radius: 10px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      position: relative;
+      z-index: 1;
+      margin-bottom: 50px;
     }
 
     .form-group {
-      margin-bottom: 20px;
+      margin-bottom: 15px;
     }
 
     label {
       display: block;
       margin-bottom: 5px;
-      font-size: 18px;
+      font-size: 16px;
       color: #333;
       font-weight: bold;
     }
@@ -1420,7 +1465,7 @@ class BrowserPopupDismiss(BrowserTask):
     input[type="email"],
     select {
       width: 100%;
-      padding: 12px;
+      padding: 10px;
       font-size: 16px;
       border: 2px solid #ddd;
       border-radius: 5px;
@@ -1434,8 +1479,8 @@ class BrowserPopupDismiss(BrowserTask):
 
     .submit-button {
       width: 100%;
-      padding: 15px;
-      font-size: 20px;
+      padding: 12px;
+      font-size: 18px;
       font-weight: bold;
       background-color: #4CAF50;
       color: white;
@@ -1456,37 +1501,36 @@ class BrowserPopupDismiss(BrowserTask):
       left: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(0, 0, 0, 0.7);
       z-index: 1000;
-      justify-content: center;
-      align-items: center;
+      pointer-events: none;
     }
 
     .popup {
       background-color: white;
-      padding: 30px;
+      padding: 15px 20px;
       border-radius: 10px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      max-width: 400px;
+      max-width: 80%;
       text-align: center;
-      position: relative;
+      position: absolute;
+      pointer-events: auto;
     }
 
     .popup h2 {
-      font-size: 24px;
-      margin-bottom: 15px;
+      font-size: 20px;
+      margin-bottom: 10px;
       color: #333;
     }
 
     .popup p {
-      font-size: 16px;
-      margin-bottom: 20px;
+      font-size: 14px;
+      margin-bottom: 10px;
       color: #666;
     }
 
     .popup-close {
-      padding: 10px 30px;
-      font-size: 18px;
+      padding: 6px 20px;
+      font-size: 14px;
       font-weight: bold;
       background-color: #2196F3;
       color: white;
@@ -1501,9 +1545,9 @@ class BrowserPopupDismiss(BrowserTask):
 
     .close-x {
       position: absolute;
-      top: 10px;
-      right: 15px;
-      font-size: 28px;
+      top: 6px;
+      right: 10px;
+      font-size: 22px;
       font-weight: bold;
       color: #999;
       cursor: pointer;
@@ -1512,6 +1556,37 @@ class BrowserPopupDismiss(BrowserTask):
 
     .close-x:hover {
       color: #333;
+    }
+
+    #cookie-bar {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: #333;
+      color: white;
+      padding: 12px 15px;
+      box-sizing: border-box;
+      font-size: 14px;
+      z-index: 2000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #cookie-bar button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 8px 15px;
+      border-radius: 5px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    #cookie-bar button:hover {
+      background-color: #45a049;
     }
   </style>
 </head>
@@ -1546,110 +1621,85 @@ class BrowserPopupDismiss(BrowserTask):
     </form>
   </div>
 
-  <!-- Popup overlays -->
-  <div class="popup-overlay" id="popup1">
-    <div class="popup">
-      <span class="close-x" onclick="closePopup('popup1')">&times;</span>
+  <div class="popup-overlay" id="floating-popup-overlay">
+    <div class="popup" id="floating-popup">
+      <span class="close-x" onclick="closePopup('floating-popup-overlay')">&times;</span>
+      <h2>Limited Time Offer</h2>
+      <p>Get 20% off your first purchase! Don't miss out!</p>
+      <button class="popup-close" onclick="closePopup('floating-popup-overlay')">No Thanks</button>
+    </div>
+  </div>
+
+  <div class="popup-overlay" id="popup-newsletter">
+    <div class="popup" style="top: 20%; left: 50%; transform: translateX(-50%);">
+      <span class="close-x" onclick="closePopup('popup-newsletter')">&times;</span>
       <h2>Special Offer!</h2>
       <p>Subscribe to our newsletter for exclusive deals and updates.</p>
-      <button class="popup-close" onclick="closePopup('popup1')">Close</button>
+      <button class="popup-close" onclick="closePopup('popup-newsletter')">Close</button>
     </div>
   </div>
 
-  <div class="popup-overlay" id="popup2">
-    <div class="popup">
-      <span class="close-x" onclick="closePopup('popup2')">&times;</span>
-      <h2>Cookie Notice</h2>
-      <p>This website uses cookies to improve your experience. By continuing, you accept our cookie policy.</p>
-      <button class="popup-close" onclick="closePopup('popup2')">Accept</button>
-    </div>
-  </div>
-
-  <div class="popup-overlay" id="popup3">
-    <div class="popup">
-      <span class="close-x" onclick="closePopup('popup3')">&times;</span>
-      <h2>Limited Time Offer</h2>
-      <p>Get 20% off your first purchase! Don't miss out on this amazing deal.</p>
-      <button class="popup-close" onclick="closePopup('popup3')">No Thanks</button>
-    </div>
+  <div id="cookie-bar">
+    <span>This website uses cookies to improve your experience. By continuing, you accept our cookie policy.</span>
+    <button onclick="closeCookieBar()">Accept</button>
   </div>
 
   <script>
-    class SeededRNG {
-      constructor(seed) {
-        this.seed = seed;
+    function closePopup(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    function closeCookieBar() {
+      document.getElementById('cookie-bar').style.display = 'none';
+    }
+
+    // 显示cookie和浮动弹窗
+    document.getElementById('cookie-bar').style.display = 'flex';
+    const floatingPopup = document.getElementById('floating-popup-overlay');
+    floatingPopup.style.display = 'flex';
+
+    // 浮动弹窗移动逻辑
+    function startFloating(popup) {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      let x = w/2 - popup.offsetWidth/2;
+      let y = h/2 - popup.offsetHeight/2;
+      let dx = (Math.random() - 0.5) * 1.5; // 控制速度
+      let dy = (Math.random() - 0.5) * 1.5;
+
+      function move() {
+        x += dx;
+        y += dy;
+        if (x < 0 || x + popup.offsetWidth > w) dx = -dx;
+        if (y < 0 || y + popup.offsetHeight > h) dy = -dy;
+        popup.style.left = x + 'px';
+        popup.style.top = y + 'px';
+        requestAnimationFrame(move);
       }
+      move();
+    }
+    startFloating(document.getElementById('floating-popup'));
 
-      random() {
-        const a = 1664525;
-        const c = 1013904223;
-        const m = 2 ** 32;
-        this.seed = (a * this.seed + c) % m;
-        return this.seed / m;
+    // 点击第一个输入框后显示其他弹窗
+    let firstInput = document.getElementById('name');
+    let otherPopupsShown = false;
+    firstInput.addEventListener('focus', () => {
+      if (!otherPopupsShown) {
+        document.getElementById('popup-newsletter').style.display = 'flex';
+        otherPopupsShown = true;
       }
-    }
-
-    const rng = new SeededRNG(%%SEED%%);
-    
-    let popupsShown = 0;
-    let popupsClosed = 0;
-    const popupIds = ['popup1', 'popup2', 'popup3'];
-    const totalPopups = 2; // Show 2 random popups
-
-    // Shuffle popup order
-    for (let i = popupIds.length - 1; i > 0; i--) {
-      const j = Math.floor(rng.random() * (i + 1));
-      [popupIds[i], popupIds[j]] = [popupIds[j], popupIds[i]];
-    }
-
-    function showPopup(popupId) {
-      const popup = document.getElementById(popupId);
-      popup.style.display = 'flex';
-      popupsShown++;
-    }
-
-    function closePopup(popupId) {
-      const popup = document.getElementById(popupId);
-      popup.style.display = 'none';
-      popupsClosed++;
-    }
-
-    // Show first popup after random delay (2-4 seconds)
-    setTimeout(() => {
-      showPopup(popupIds[0]);
-    }, 2000 + Math.floor(rng.random() * 2000));
-
-    // Show second popup after another delay (3-5 seconds after page load)
-    setTimeout(() => {
-      showPopup(popupIds[1]);
-    }, 3000 + Math.floor(rng.random() * 2000));
-
-    // Monitor form interactions to trigger additional popups
-    let formInteracted = false;
-    document.querySelectorAll('input, select').forEach(element => {
-      element.addEventListener('focus', () => {
-        if (!formInteracted) {
-          formInteracted = true;
-        }
-      });
     });
 
-    // Handle form submission
     document.getElementById('main-form').addEventListener('submit', function(e) {
       e.preventDefault();
-      
-      // Check if form is complete
       const name = document.getElementById('name').value;
       const email = document.getElementById('email').value;
       const country = document.getElementById('country').value;
-      
-      if (name && email && country) {
+
+      if(name && email && country){
         document.body.innerHTML = '<h1>Success!</h1>';
       }
     });
-
-    // Make closePopup available globally
-    window.closePopup = closePopup;
   </script>
 </body>
 </html>"""
@@ -1664,8 +1714,7 @@ class BrowserAdBlock(BrowserTask):
   def goal(self) -> str:
     return (
         self.preamble
-        + ' Then close the advertisement overlay to reveal the content,'
-        ' read the secret code, and enter it in the form.'
+        + ' Then read the secret code, and enter it in the form.'
     )
 
   HTML = """\
@@ -2658,9 +2707,11 @@ class BrowserRetry(BrowserTask):
 
   @property
   def goal(self) -> str:
+    param = {"name": "Bob Smith", "email": "bob.smith@co.uk", "ranking": "4", "comments": "Absolutely delicious food, exceptional service, and a cozy atmosphere"},
     return (
         self.preamble
-        + ' Then fill in the survey form and submit.'
+        + ' Fill in the survey form with following information and submit:\n'
+        + f"Name: {param['name']}, Email: {param['email']}, Ranking: {param['ranking']}, Comments: {param['comments']}."
     )
 
   HTML = """<!DOCTYPE html>
