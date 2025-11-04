@@ -14,12 +14,14 @@
 
 """Tasks that require interacting with a browser."""
 
+import hashlib
 import random
 import time
 from typing import Any
 from android_world.env import adb_utils
 from android_world.env import device_constants
 from android_world.env import interface
+from android_world.env import representation_utils
 from android_world.task_evals import task_eval
 from android_world.task_evals.utils import user_data_generation
 from android_world.utils import datetime_utils
@@ -1609,11 +1611,16 @@ class BrowserPopupDismiss(BrowserTask):
         <label for="country">Country:</label>
         <select id="country" name="country" required>
           <option value="">Select a country</option>
-          <option value="us">United States</option>
-          <option value="uk">United Kingdom</option>
-          <option value="ca">Canada</option>
-          <option value="au">Australia</option>
-          <option value="other">Other</option>
+          <option value="US">US</option>
+          <option value="Canada">Canada</option>
+          <option value="UK">UK</option>
+          <option value="Australia">Australia</option>
+          <option value="Germany">Germany</option>
+          <option value="France">France</option>
+          <option value="Japan">Japan</option>
+          <option value="China">China</option>
+          <option value="India">India</option>
+          <option value="Brazil">Brazil</option>
         </select>
       </div>
 
@@ -1690,19 +1697,66 @@ class BrowserPopupDismiss(BrowserTask):
       }
     });
 
-    document.getElementById('main-form').addEventListener('submit', function(e) {
+    // Simple SHA-256 implementation
+    async function sha256(message) {
+      const msgBuffer = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return hashHex;
+    }
+
+    document.getElementById('main-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       const name = document.getElementById('name').value;
       const email = document.getElementById('email').value;
       const country = document.getElementById('country').value;
 
       if(name && email && country){
-        document.body.innerHTML = '<h1>Success!</h1>';
+        // Calculate hash of all fields concatenated
+        const dataString = name + '|' + email + '|' + country;
+        const hash = await sha256(dataString);
+        
+        document.body.innerHTML = `
+          <div style="padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h1>Success!</h1>
+            <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+              <h2>Form Submitted Successfully!</h2>
+              <p style="font-family: monospace; word-break: break-all;">Verification: ${hash}</p>
+            </div>
+          </div>
+        `;
       }
     });
   </script>
 </body>
 </html>"""
+
+  def is_successful(self, env: interface.AsyncEnv) -> float:
+    """Check if the form was successfully submitted with correct information."""
+    # First check parent class validation (Chrome app + "Success!" text)
+    if super().is_successful(env) == 0.0:
+      return 0.0
+    
+    # Calculate expected hash from submitted data
+    data_string = (
+        self.params["name"] + '|' +
+        self.params["email"] + '|' +
+        self.params["country"]
+    )
+    expected_hash = hashlib.sha256(data_string.encode()).hexdigest()
+    
+    # Check if hash is displayed in UI
+    ui_elements = representation_utils.forest_to_ui_elements(
+        env.get_state().forest,
+        exclude_invisible_elements=False,
+    )
+    
+    for element in ui_elements:
+      if element.text and expected_hash in element.text:
+        return 1.0
+    
+    return 0.0
 
 
 class BrowserAdBlock(BrowserTask):
@@ -2704,15 +2758,67 @@ class BrowserRetry(BrowserTask):
   """Task for handling submission failure and retry logic."""
 
   complexity = 2.7
+  schema = {
+      "type": "object",
+      "properties": {
+          "name": {"type": "string"},
+          "email": {"type": "string"},
+          "ranking": {"type": "string"},
+          "comments": {"type": "string"},
+      },
+      "required": ["name", "email", "ranking", "comments"],
+  }
+  template = (
+      "Then fill in the survey form with following information and submit:\n"
+      "Name: {name}, Email: {email}, Ranking: {ranking}, Comments: {comments}."
+  )
+
+  @classmethod
+  def generate_random_params(cls) -> dict[str, str]:
+    name_email_pairs = [
+        ("Bob Smith", "bob.smith@co.uk"),
+        ("Alice Johnson", "alice.j@test.com"),
+        ("Charlie Davis", "charlie.d@example.com"),
+        ("Diana Garcia", "diana.g@mail.com"),
+        ("Edward Wilson", "edward.w@demo.com"),
+        ("Fiona Martinez", "fiona.m@site.com"),
+        ("George Brown", "george.b@test.net"),
+        ("Hannah Lee", "hannah.l@example.org"),
+        ("Isaac Taylor", "isaac.t@web.com"),
+        ("Julia Anderson", "julia.a@service.com"),
+    ]
+    
+    comments_list = [
+        "Absolutely delicious food, exceptional service, and a cozy atmosphere",
+        "Great experience overall, highly recommend to everyone",
+        "The quality exceeded my expectations, will visit again",
+        "Professional staff and amazing attention to detail",
+        "Outstanding service from start to finish",
+        "Very impressed with the quality and presentation",
+        "Fantastic experience, worth every penny",
+        "Exceeded all expectations, truly remarkable",
+        "Impeccable service and wonderful ambiance",
+        "Best experience I've had in a long time",
+    ]
+    
+    rankings = ["1", "2", "3", "4", "5"]
+    
+    name, email = random.choice(name_email_pairs)
+    ranking = random.choice(rankings)
+    comments = random.choice(comments_list)
+    
+    params = {
+        "name": name,
+        "email": email,
+        "ranking": ranking,
+        "comments": comments,
+        'browser_task_seed': random.randint(0, 2**32 - 1)
+    }
+    return params
 
   @property
   def goal(self) -> str:
-    param = {"name": "Bob Smith", "email": "bob.smith@co.uk", "ranking": "4", "comments": "Absolutely delicious food, exceptional service, and a cozy atmosphere"},
-    return (
-        self.preamble
-        + ' Fill in the survey form with following information and submit:\n'
-        + f"Name: {param['name']}, Email: {param['email']}, Ranking: {param['ranking']}, Comments: {param['comments']}."
-    )
+    return self.preamble + self.template.format(**self.params)
 
   HTML = """<!DOCTYPE html>
 <html>
@@ -3014,8 +3120,28 @@ class BrowserRetry(BrowserTask):
           // First attempt always fails
           document.getElementById('error-message').classList.add('show');
         } else {
-          // Second attempt succeeds
-          document.body.innerHTML = '<h1>Success!</h1>';
+          // Second attempt succeeds - calculate hash and show
+          const name = document.getElementById('name').value;
+          const email = document.getElementById('email').value;
+          const rating = document.getElementById('rating').value;
+          const comments = document.getElementById('comments').value;
+          
+          // Calculate hash of all fields concatenated
+          const dataString = name + '|' + email + '|' + rating + '|' + comments;
+          crypto.subtle.digest('SHA-256', new TextEncoder().encode(dataString)).then(hashBuffer => {
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            document.body.innerHTML = `
+              <div style="padding: 20px; max-width: 600px; margin: 50px auto;">
+                <h1>Success!</h1>
+                <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                  <h2>Survey Submitted Successfully!</h2>
+                  <p style="font-family: monospace; word-break: break-all; font-size: 14px;">Verification: ${hash}</p>
+                </div>
+              </div>
+            `;
+          });
         }
       }, 1500 + Math.floor(rng.random() * 1000));
     }
@@ -3043,6 +3169,33 @@ class BrowserRetry(BrowserTask):
   </script>
 </body>
 </html>"""
+
+  def is_successful(self, env: interface.AsyncEnv) -> float:
+    """Check if the survey was successfully submitted with correct information."""
+    # First check parent class validation (Chrome app + "Success!" text)
+    if super().is_successful(env) == 0.0:
+      return 0.0
+    
+    # Calculate expected hash from submitted data
+    data_string = (
+        self.params["name"] + '|' +
+        self.params["email"] + '|' +
+        self.params["ranking"] + '|' +
+        self.params["comments"]
+    )
+    expected_hash = hashlib.sha256(data_string.encode()).hexdigest()
+    
+    # Check if hash is displayed in UI
+    ui_elements = representation_utils.forest_to_ui_elements(
+        env.get_state().forest,
+        exclude_invisible_elements=False,
+    )
+    
+    for element in ui_elements:
+      if element.text and expected_hash in element.text:
+        return 1.0
+    
+    return 0.0
 
 
 class BrowserDraw(BrowserTask):
