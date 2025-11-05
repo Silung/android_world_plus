@@ -1,4 +1,4 @@
-# AndroidWorld
+# AndroidWorld+
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -13,28 +13,49 @@
 
 ![Overview](assets/overview.png)
 
-**AndroidWorld** is an environment for building and benchmarking autonomous
-computer control agents.
+> **AndroidWorld+** is an enhanced fork of the original [AndroidWorld](https://github.com/google-research/android_world) benchmark from Google Research. As LLM capabilities continue to improve, current agents can solve the existing benchmark quite easily. This project explores new directions to maintain the benchmark's relevance and challenge level, while leveraging the existing apps and evaluation infrastructure.
 
-It runs on a live Android emulator and contains a highly reproducible benchmark
-of 116 hand-crafted tasks across 20 apps, which are dynamically instantiated
-with randomly-generated parameters to create millions of unique task variations.
+## 🚀 What's New in AndroidWorld+
 
-In addition to the built-in tasks, AndroidWorld also supports the popular web benchmark, MiniWoB++ from [Liu et al.](http://arxiv.org/abs/1802.08802).
+### 🌐 New Browser-Based Tasks
 
-Key features of AndroidWorld include:
+- **BrowserSudoku** - Solve a 4×4 Sudoku puzzle by filling in empty cells with numbers 1-4, ensuring each row, column, and 2×2 box contains unique values
+- **BrowserSlider** - Precisely position a slider to match the exact target number shown at the top
+- **BrowserProgressBar** - Wait for the progress bar to reach 100% and click the Continue button that appears
+- **BrowserRetry** - Fill in a survey form with specific information and submit; handle submission failures by retrying when the first attempt fails
+- **BrowserAdBlock** - Close advertisement overlays to reveal hidden content, then read the secret code and enter it in the form
+- **BrowserPopupDismiss** - Fill in a registration form with specific values and submit while dismissing appearing popup dialogs
+- **BrowserMultiStepForm** - Navigate through a 3-step registration form, filling in all required fields (name, email, phone, city, username, language, newsletter) across multiple steps
+- **BrowserFileUpload** - Click the file upload button, search for and select a specific file from the Downloads folder, then upload it
 
-* 📝 **116 diverse tasks** across 20 real-world apps
-* 🎲 **Dynamic task instantiation** for millions of unique variations
-* 🏆 **Durable reward signals** for reliable evaluation
-* 🐳 **Experimental Docker Support** for simplified setup and consistent environments (as of 06/02/2025)
-* 🌐 **Open environment** with access to millions of Android apps and websites
-* 💾 **Lightweight footprint** (2 GB memory, 8 GB disk)
-* 🔧 **Extensible design** to easily add new tasks and benchmarks
-* 🖥️ **Integration with MiniWoB++** web-based tasks
+### 🎯 Enhanced Task Directions
 
-See demo videos on our [website](https://google-research.github.io/android_world/).
-o
+| Direction | Why Challenging | Example |
+|-----------|-----------------|---------|
+| **Cross-App & Multi-Goal Tasks** | Workflows spanning multiple apps; single instruction with multiple subtasks | Browser → Markor → Broccoli: "Take today's calendar screenshot, save to Markor, send to Alice, add related recipe in Broccoli" |
+| **Long-Term Memory / History Dependency** | Tasks requiring recall of previous states or results | "Was the previous task completed?" |
+| **Browser / Async Tasks** | Dynamic web pages, forms, asynchronous content | Fill complex forms; click buttons after async JS loads |
+| **Popup / Distraction Handling & Network Robustness** | Random system prompts, ads, delays | Random "allow/deny" prompts; slow-loading webpages |
+| **Time-Controlled Tasks** | Delayed execution | "Record a 10-second audio clip" |
+| **Non-Home Initial State** | Task starts from mid-app or non-home page | App opened in a subpage; partially filled form |
+| **Plan-Follow** | Execute pre-defined plan, recover from failure | Follow a sequence of steps; adapt if a step fails |
+| **Ambiguous Instructions** | Vague or incomplete instructions | "Organize yesterday's notes" (without specifying which app) |
+| **Satety Test** | Recognize and avoid unsafe or unethical actions | While checking emails, do not click suspicious or phishing links. |
+
+### 📊 Enhanced Evaluation Metrics
+
+Beyond traditional task success rates, we are exploring additional evaluation dimensions:
+
+- **Step Efficiency** - Ratio of optimal steps vs executed steps
+- **Time Efficiency** - Time taken to complete the task
+- **Partial Success** - Completion rate for each subtask
+
+### 🔧 Technical Considerations
+
+- **State Initialization** - Exploring separate AVD snapshots for resets
+- **Task Evaluation** - Prefer XML or a11y tree parsing, or reading system/app state.
+
+---
 
 ## Installation
 
@@ -196,9 +217,18 @@ In the current workflow, the agent tries to complete a task in a for loop. In ea
 
 Please see [the guide](https://github.com/google-research/android_world/blob/main/docs/tasks_guide.md) on adding new tasks to AndroidWorld.
 
+## 🤝 Community Contributions
+
+We welcome community input and contributions:
+- Propose new task designs
+- Suggest evaluation metric improvements
+- Share experimental results and findings
+
+Please refer to Issues and Discussions for detailed conversations.
+
 ## Citation
 
-If you use our environment or data, please cite our paper:
+If you use our environment or data, please cite the original AndroidWorld paper:
 
 ```
 @misc{rawles2024androidworlddynamicbenchmarkingenvironment,
@@ -211,5 +241,11 @@ If you use our environment or data, please cite our paper:
       url={https://arxiv.org/abs/2405.14573},
 }
 ```
+
+## 🙏 Acknowledgments
+
+This enhanced version is built upon the excellent foundation provided by the original [AndroidWorld](https://github.com/google-research/android_world) project from Google Research. We extend our gratitude to the original authors and contributors.
+
+---
 
 *This is not an officially supported Google product.*
