@@ -15,9 +15,9 @@
   },
   {
     "task_name": "BrowserAdBlock",
-    "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then close the advertisement overlay to reveal the content, read the secret code, and enter it in the form.",
+    "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then read the secret code, and enter it in the form.",
     "difficulty": "medium",
-    "tags": ["distraction_handling", "multi_step", "screen_reading", "parameterized"],
+    "tags": ["parameterized", "multi_app", "complex_ui_understanding", "robustness"],
     "optimal_steps": "9"
   },
   {
@@ -29,10 +29,10 @@
   },
   {
     "task_name": "BrowserFileUpload",
-    "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then select a file from the file list and click Upload to complete the task.",
-    "difficulty": "medium",
-    "tags": ["file_selection", "list_navigation", "multi_step", "parameterized"],
-    "optimal_steps": "8"
+    "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then click the file upload button, select the file named {required_file} from the Downloads folder, and upload it.",
+    "difficulty": "easy",
+    "tags": ["multi_app", "search", "parameterized"],
+    "optimal_steps": "14"
   },
   {
     "task_name": "BrowserMaze",
@@ -56,45 +56,45 @@
   },
   {
     "task_name": "BrowserMultiStepForm",
-    "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then complete the 3-step registration form by filling in all required fields and clicking Next/Submit on each step.",
-    "difficulty": "hard",
-    "tags": ["form_filling", "multi_step", "navigation", "data_entry", "parameterized"],
-    "optimal_steps": "15"
+    "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then complete the 3-step registration form with the following information:\nFirst Name: {first_name}, Last Name: {last_name}, Date of Birth: {dob}, Email: {email}, Phone: {phone}, City: {city}, Username: {username}, Language: {language}, Newsletter: {newsletter}",
+    "difficulty": "medium",
+    "tags": ["data_entry", "memorization", "multi_app", "parameterized"],
+    "optimal_steps": "26"
   },
   {
     "task_name": "BrowserPopupDismiss",
-    "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then fill in the form with any values and submit. You may need to close popup dialogs that appear.",
-    "difficulty": "hard",
-    "tags": ["distraction_handling", "form_filling", "multi_step", "parameterized"],
-    "optimal_steps": "12"
+    "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then fill in the form with following values and submit:\nName: {name}, Email: {email}, Country: {country}.",
+    "difficulty": "medium",
+    "tags": ["data_entry", "multi_app", "robustness", "parameterized", "fine_control"],
+    "optimal_steps": "13"
   },
   {
     "task_name": "BrowserProgressBar",
     "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then wait for the progress bar to reach 100% and click the Continue button that appears.",
-    "difficulty": "medium",
-    "tags": ["async_content", "waiting", "button_click", "parameterized"],
-    "optimal_steps": "7"
+    "difficulty": "easy",
+    "tags": ["robustness", "multi_app"],
+    "optimal_steps": "8"
   },
   {
     "task_name": "BrowserRetry",
-    "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then fill in the survey form and submit. The first submission may fail - if so, click Retry to resubmit.",
-    "difficulty": "hard",
-    "tags": ["form_filling", "error_handling", "retry_logic", "multi_step", "parameterized"],
-    "optimal_steps": "13"
+    "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then fill in the survey form with following information and submit:\nName: {name}, Email: {email}, Ranking: {ranking}, Comments: \"{comments}\"",
+    "difficulty": "easy",
+    "tags": ["robustness", "data_entry", "multi_app", "repetition", "parameterized"],
+    "optimal_steps": "22"
   },
   {
     "task_name": "BrowserSlider",
     "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then drag the slider to match the target number shown at the top.",
     "difficulty": "hard",
-    "tags": ["game_playing", "precise_control", "parameterized"],
+    "tags": ["game_playing", "fine_control", "multi_app", "parameterized"],
     "optimal_steps": "8"
   },
   {
     "task_name": "BrowserSudoku",
     "task_template": "Open the file task.html in Downloads in the file manager; when prompted open it with Chrome. Then solve the 4x4 Sudoku puzzle by filling in the empty cells. Each row, column, and 2x2 box must contain the numbers 1-4.",
     "difficulty": "hard",
-    "tags": ["game_playing", "logic_puzzle", "multi_step", "parameterized"],
-    "optimal_steps": "12"
+    "tags": ["game_playing", "multi_app", "math_counting", "complex_ui_understanding", "parameterized"],
+    "optimal_steps": "20"
   },
   {
     "task_name": "CameraTakePhoto",

@@ -19,14 +19,14 @@
 
 ### 🌐 New Browser-Based Tasks
 
-- **BrowserSudoku** - Solve a 4×4 Sudoku puzzle with logic reasoning
-- **BrowserSlider** - Precisely position a slider to match the exact target value
-- **BrowserProgressBar** - Wait for asynchronous content to load (3-6 seconds) before proceeding
-- **BrowserRetry** - Handle submission failures and retry logic (first attempt always fails)
-- **BrowserAdBlock** - Close advertisement overlays to reveal hidden content
-- **BrowserPopupDismiss** - Complete forms while dismissing 2 random popup dialogs
-- **BrowserMultiStepForm** - Navigate through a 3-step registration form with validation
-- **BrowserFileUpload** - Select and upload a specific file from a list of 8-10 files
+- **BrowserSudoku** - Solve a 4×4 Sudoku puzzle by filling in empty cells with numbers 1-4, ensuring each row, column, and 2×2 box contains unique values
+- **BrowserSlider** - Precisely position a slider to match the exact target number shown at the top
+- **BrowserProgressBar** - Wait for the progress bar to reach 100% and click the Continue button that appears
+- **BrowserRetry** - Fill in a survey form with specific information and submit; handle submission failures by retrying when the first attempt fails
+- **BrowserAdBlock** - Close advertisement overlays to reveal hidden content, then read the secret code and enter it in the form
+- **BrowserPopupDismiss** - Fill in a registration form with specific values and submit while dismissing appearing popup dialogs
+- **BrowserMultiStepForm** - Navigate through a 3-step registration form, filling in all required fields (name, email, phone, city, username, language, newsletter) across multiple steps
+- **BrowserFileUpload** - Click the file upload button, search for and select a specific file from the Downloads folder, then upload it
 
 ### 🎯 Enhanced Task Directions
 

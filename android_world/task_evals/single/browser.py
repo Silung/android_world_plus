@@ -128,8 +128,7 @@ class BrowserMaze(BrowserTask):
         ' direction buttons.'
     )
 
-  HTML = """\
-<!DOCTYPE html>
+  HTML = """<!DOCTYPE html>
 <html>
 <head>
   <title>Maze Puzzle</title>
@@ -345,8 +344,7 @@ class BrowserMultiply(BrowserTask):
         ' enter their product in the form.'
     )
 
-  HTML = """\
-<!DOCTYPE html>
+  HTML = """<!DOCTYPE html>
 <html>
 <head>
   <title>Memory Task</title>
@@ -449,7 +447,7 @@ class BrowserMultiply(BrowserTask):
 class BrowserSudoku(BrowserTask):
   """Task for solving a 4*4 Sudoku puzzle."""
 
-  complexity = 2.5
+  complexity = 3.5
 
   @property
   def goal(self) -> str:
@@ -868,8 +866,6 @@ class BrowserSudoku(BrowserTask):
 class BrowserSlider(BrowserTask):
   """Task for positioning a slider to a target value."""
 
-  complexity = 2.0
-
   @property
   def goal(self) -> str:
     return (
@@ -877,8 +873,7 @@ class BrowserSlider(BrowserTask):
         + ' Then drag the slider to match the target number shown at the top.'
     )
 
-  HTML = """\
-<!DOCTYPE html>
+  HTML = """<!DOCTYPE html>
 <html>
 <head>
   <title>Slider Challenge</title>
@@ -1103,8 +1098,7 @@ class BrowserSlider(BrowserTask):
 class BrowserProgressBar(BrowserTask):
   """Task for waiting for a progress bar to complete before proceeding."""
 
-  complexity = 2.3
-
+  complexity = 1.8
   @property
   def goal(self) -> str:
     return (
@@ -1368,7 +1362,7 @@ class BrowserProgressBar(BrowserTask):
 class BrowserPopupDismiss(BrowserTask):
   """Task for dismissing popup dialogs while completing a form."""
 
-  complexity = 2.8
+  complexity = 2.5
   schema = {
       "type": "object",
       "properties": {
@@ -1379,7 +1373,7 @@ class BrowserPopupDismiss(BrowserTask):
       "required": ["name", "email", "country"],
   }
   template = (
-      "Then fill in the form with following values and submit:\n"
+      " Then fill in the form with following values and submit:\n"
       "Name: {name}, Email: {email}, Country: {country}."
   )
 
@@ -1766,7 +1760,6 @@ class BrowserAdBlock(BrowserTask):
   """Task for closing ad overlays blocking content."""
 
   complexity = 2.5
-
   @property
   def goal(self) -> str:
     return (
@@ -1774,8 +1767,7 @@ class BrowserAdBlock(BrowserTask):
         + ' Then read the secret code, and enter it in the form.'
     )
 
-  HTML = """\
-<!DOCTYPE html>
+  HTML = """<!DOCTYPE html>
 <html>
 <head>
   <title>Article Page</title>
@@ -2074,7 +2066,7 @@ class BrowserAdBlock(BrowserTask):
 class BrowserMultiStepForm(BrowserTask):
   """Task for completing a multi-step registration form."""
 
-  complexity = 3.0
+  complexity = 4.0
   schema = {
       "type": "object",
       "properties": {
@@ -2091,7 +2083,7 @@ class BrowserMultiStepForm(BrowserTask):
       "required": ["first_name", "last_name", "dob", "email", "phone", "city", "username", "language", "newsletter"],
   }
   template = (
-      "Then complete the 3-step registration form with the following information:\n"
+      " Then complete the 3-step registration form with the following information:\n"
       "First Name: {first_name}, Last Name: {last_name}, Date of Birth: {dob}, "
       "Email: {email}, Phone: {phone}, City: {city}, "
       "Username: {username}, Language: {language}, Newsletter: {newsletter}"
@@ -2589,7 +2581,7 @@ class BrowserMultiStepForm(BrowserTask):
 class BrowserFileUpload(BrowserTask):
   """Task for simulating file selection and upload."""
 
-  complexity = 2.6
+  complexity = 3.0
   schema = {
       "type": "object",
       "properties": {
@@ -2599,7 +2591,7 @@ class BrowserFileUpload(BrowserTask):
       "required": ["required_file", "noise_candidates"],
   }
   template = (
-      "Then click the file upload button, select the file named {required_file} "
+      " Then click the file upload button, select the file named {required_file} "
       "from the Downloads folder, and upload it."
   )
 
@@ -2875,7 +2867,7 @@ class BrowserFileUpload(BrowserTask):
 class BrowserRetry(BrowserTask):
   """Task for handling submission failure and retry logic."""
 
-  complexity = 2.7
+  complexity = 3.5
   schema = {
       "type": "object",
       "properties": {
@@ -2887,8 +2879,8 @@ class BrowserRetry(BrowserTask):
       "required": ["name", "email", "ranking", "comments"],
   }
   template = (
-      "Then fill in the survey form with following information and submit:\n"
-      "Name: {name}, Email: {email}, Ranking: {ranking}, Comments: {comments}."
+      " Then fill in the survey form with following information and submit:\n"
+      'Name: {name}, Email: {email}, Ranking: {ranking}, Comments: "{comments}"'
   )
 
   @classmethod
@@ -3319,6 +3311,8 @@ class BrowserRetry(BrowserTask):
 
 class BrowserDraw(BrowserTask):
   """Task for drawing on a canvas."""
+
+  complexity = 1.5
 
   @property
   def goal(self) -> str:
