@@ -14,8 +14,10 @@
 
 """Tasks that require interacting with a browser."""
 
+import os
 import hashlib
 import random
+import re
 import time
 from typing import Any
 from android_world.env import adb_utils
@@ -76,7 +78,7 @@ class BrowserTask(task_eval.TaskEval):
     task_html_path = file_utils.convert_to_posix_path(
         file_utils.get_local_tmp_directory(), 'task.html'
     )
-    with open(task_html_path, 'w') as f:
+    with open(task_html_path, 'w', encoding='utf-8') as f:
       f.write(html)
     file_utils.copy_data_to_device(
         task_html_path,
@@ -1697,13 +1699,13 @@ class BrowserPopupDismiss(BrowserTask):
       }
     });
 
-    // Simple SHA-256 implementation
+    // Simple SHA-256 implementation (truncated to first 8 characters)
     async function sha256(message) {
       const msgBuffer = new TextEncoder().encode(message);
       const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      return hashHex;
+      return hashHex.substring(0, 8);  // Use only first 8 characters
     }
 
     document.getElementById('main-form').addEventListener('submit', async function(e) {
@@ -1713,7 +1715,7 @@ class BrowserPopupDismiss(BrowserTask):
       const country = document.getElementById('country').value;
 
       if(name && email && country){
-        // Calculate hash of all fields concatenated
+        // No normalization needed for these fields
         const dataString = name + '|' + email + '|' + country;
         const hash = await sha256(dataString);
         
@@ -1738,13 +1740,14 @@ class BrowserPopupDismiss(BrowserTask):
     if super().is_successful(env) == 0.0:
       return 0.0
     
-    # Calculate expected hash from submitted data
+    # Calculate expected hash from submitted data (use first 8 characters)
+    # No normalization needed - these fields don't have formatting characters
     data_string = (
         self.params["name"] + '|' +
         self.params["email"] + '|' +
         self.params["country"]
     )
-    expected_hash = hashlib.sha256(data_string.encode()).hexdigest()
+    expected_hash = hashlib.sha256(data_string.encode()).hexdigest()[:8]
     
     # Check if hash is displayed in UI
     ui_elements = representation_utils.forest_to_ui_elements(
@@ -2072,14 +2075,96 @@ class BrowserMultiStepForm(BrowserTask):
   """Task for completing a multi-step registration form."""
 
   complexity = 3.0
+  schema = {
+      "type": "object",
+      "properties": {
+          "first_name": {"type": "string"},
+          "last_name": {"type": "string"},
+          "dob": {"type": "string"},
+          "email": {"type": "string"},
+          "phone": {"type": "string"},
+          "city": {"type": "string"},
+          "username": {"type": "string"},
+          "language": {"type": "string"},
+          "newsletter": {"type": "string"},
+      },
+      "required": ["first_name", "last_name", "dob", "email", "phone", "city", "username", "language", "newsletter"],
+  }
+  template = (
+      "Then complete the 3-step registration form with the following information:\n"
+      "First Name: {first_name}, Last Name: {last_name}, Date of Birth: {dob}, "
+      "Email: {email}, Phone: {phone}, City: {city}, "
+      "Username: {username}, Language: {language}, Newsletter: {newsletter}"
+  )
+
+  @classmethod
+  def generate_random_params(cls) -> dict[str, str]:
+    first_names = [
+        "John", "Emma", "Michael", "Sophia", "William",
+        "Olivia", "James", "Ava", "Robert", "Isabella"
+    ]
+    last_names = [
+        "Smith", "Johnson", "Williams", "Brown", "Jones",
+        "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"
+    ]
+    cities = [
+        "New York", "Los Angeles", "Chicago", "Houston", "Phoenix",
+        "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose"
+    ]
+    usernames = [
+        "user123", "techguru", "coolcat99", "happyuser", "starlight",
+        "oceanwave", "mountainking", "skywalker", "phoenix2024", "dragonfly"
+    ]
+    languages = ["en", "es", "fr", "de", "zh"]
+    language_names = {
+        "en": "English",
+        "es": "Spanish", 
+        "fr": "French",
+        "de": "German",
+        "zh": "Chinese"
+    }
+    newsletters = ["weekly", "monthly", "never"]
+    newsletter_names = {
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "never": "Never"
+    }
+    
+    first_name = random.choice(first_names)
+    last_name = random.choice(last_names)
+    # Generate date in MM/DD/YYYY format
+    month = random.randint(1, 12)
+    day = random.randint(1, 28)  # Safe for all months
+    year = random.randint(1970, 2005)
+    dob = f"{month:02d}/{day:02d}/{year}"
+    
+    email = f"{first_name.lower()}.{last_name.lower()}@example.com"
+    # Generate phone in (XXX) XXX-XXXX format
+    phone = f"({random.randint(200, 999)}) {random.randint(200, 999)}-{random.randint(1000, 9999)}"
+    city = random.choice(cities)
+    username = random.choice(usernames)
+    language = random.choice(languages)
+    newsletter = random.choice(newsletters)
+    
+    params = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "dob": dob,
+        "email": email,
+        "phone": phone,
+        "city": city,
+        "username": username,
+        "language": language,
+        "language_display": language_names[language],
+        "newsletter": newsletter,
+        "newsletter_display": newsletter_names[newsletter],
+        'browser_task_seed': random.randint(0, 2**32 - 1)
+    }
+    return params
 
   @property
   def goal(self) -> str:
-    return (
-        self.preamble
-        + ' Then complete the 3-step registration form by filling in all'
-        ' required fields and clicking Next/Submit on each step.'
-    )
+    return self.preamble + self.template.format(**self.params)
 
   HTML = """\
 <!DOCTYPE html>
@@ -2410,11 +2495,46 @@ class BrowserMultiStepForm(BrowserTask):
       window.scrollTo(0, 0);
     }
 
+    // Normalize string by removing special characters (keep only alphanumeric)
+    // Only use this for formatting characters like phone numbers and dates
+    function normalizeString(str) {
+      return str.replace(/[^a-zA-Z0-9]/g, '');
+    }
+
     document.getElementById('registration-form').addEventListener('submit', function(e) {
       e.preventDefault();
       
       if (validateStep(3)) {
-        document.body.innerHTML = '<h1>Success!</h1>';
+        // Collect all form data
+        const firstName = document.getElementById('first-name').value;
+        const lastName = document.getElementById('last-name').value;
+        const dob = document.getElementById('dob').value;
+        const email = document.getElementById('email').value;
+        const phone = document.getElementById('phone').value;
+        const city = document.getElementById('city').value;
+        const username = document.getElementById('username').value;
+        const language = document.getElementById('language').value;
+        const newsletter = document.getElementById('newsletter').value;
+        
+        // Only normalize phone and date fields - other fields keep special characters
+        const dataString = firstName + '|' + lastName + '|' + normalizeString(dob) + '|' + 
+                          email + '|' + normalizeString(phone) + '|' + city + '|' + 
+                          username + '|' + language + '|' + newsletter;
+        
+        crypto.subtle.digest('SHA-256', new TextEncoder().encode(dataString)).then(hashBuffer => {
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 8);
+          
+          document.body.innerHTML = `
+            <div style="padding: 20px; max-width: 600px; margin: 50px auto;">
+              <h1>Success!</h1>
+              <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <h2>Registration Complete!</h2>
+                <p style="font-family: monospace; word-break: break-all; font-size: 14px;">Verification: ${hash}</p>
+              </div>
+            </div>
+          `;
+        });
       } else {
         alert('Please fill in all required fields.');
       }
@@ -2427,25 +2547,114 @@ class BrowserMultiStepForm(BrowserTask):
 </body>
 </html>"""
 
+  def is_successful(self, env: interface.AsyncEnv) -> float:
+    """Check if the multi-step form was successfully completed with correct information."""
+    # First check parent class validation (Chrome app + "Success!" text)
+    if super().is_successful(env) == 0.0:
+      return 0.0
+    
+    # Normalize strings by removing special characters (keep only alphanumeric)
+    # Only use this for formatting characters like phone numbers and dates
+    def normalize_string(s):
+      return re.sub(r'[^a-zA-Z0-9]', '', s)
+    
+    # Calculate expected hash from submitted data (use first 8 characters)
+    # Only normalize phone and date fields - other fields keep special characters
+    data_string = (
+        self.params["first_name"] + '|' +
+        self.params["last_name"] + '|' +
+        normalize_string(self.params["dob"]) + '|' +
+        self.params["email"] + '|' +
+        normalize_string(self.params["phone"]) + '|' +
+        self.params["city"] + '|' +
+        self.params["username"] + '|' +
+        self.params["language"] + '|' +
+        self.params["newsletter"]
+    )
+    expected_hash = hashlib.sha256(data_string.encode()).hexdigest()[:8]
+    
+    # Check if hash is displayed in UI
+    ui_elements = representation_utils.forest_to_ui_elements(
+        env.get_state().forest,
+        exclude_invisible_elements=False,
+    )
+    
+    for element in ui_elements:
+      if element.text and expected_hash in element.text:
+        return 1.0
+    
+    return 0.0
+
 
 class BrowserFileUpload(BrowserTask):
   """Task for simulating file selection and upload."""
 
   complexity = 2.6
+  schema = {
+      "type": "object",
+      "properties": {
+          "required_file": {"type": "string"},
+          "noise_candidates": {"type": "array"},
+      },
+      "required": ["required_file", "noise_candidates"],
+  }
+  template = (
+      "Then click the file upload button, select the file named {required_file} "
+      "from the Downloads folder, and upload it."
+  )
+
+  @classmethod
+  def generate_random_params(cls) -> dict[str, str]:
+    # Use the same file generation mechanism as FilesDeleteFile
+    noise_candidates = user_data_generation.EMULATOR_DIRECTORIES["Download"]
+    _, ext_part = os.path.splitext(noise_candidates[0])
+    required_file = user_data_generation.generate_random_file_name() + ext_part
+    
+    params = {
+        "required_file": required_file,
+        "noise_candidates": noise_candidates,
+        'browser_task_seed': random.randint(0, 2**32 - 1)
+    }
+    return params
 
   @property
   def goal(self) -> str:
-    return (
-        self.preamble
-        + ' Then select a file from the file list and click Upload to'
-        ' complete the task.'
+    return self.preamble + self.template.format(**self.params)
+
+  def initialize_task(self, env: interface.AsyncEnv):
+    super().initialize_task(env)
+    # Create the required file and noise files in Downloads directory
+    # This follows the same pattern as FilesDeleteFile
+    from android_world.utils import file_utils
+    download_path = device_constants.DOWNLOAD_DATA
+    
+    # Create the required file first
+    file_utils.create_file(
+        self.params["required_file"],
+        download_path,
+        env.controller
     )
+    
+    # Generate noise files (distractors)
+    user_data_generation.generate_noise_files(
+        self.params["required_file"],
+        download_path,
+        env.controller,
+        self.params["noise_candidates"],
+    )
+    
+    # Verify file was created
+    if not file_utils.check_file_or_folder_exists(
+        self.params["required_file"], download_path, env.controller
+    ):
+      raise RuntimeError(f"File {self.params['required_file']} was not created in Downloads.")
 
   HTML = """\
 <!DOCTYPE html>
 <html>
 <head>
   <title>File Upload</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -2455,7 +2664,7 @@ class BrowserFileUpload(BrowserTask):
     }
 
     .upload-container {
-      max-width: 700px;
+      max-width: 600px;
       margin: 50px auto;
       padding: 40px;
       background-color: white;
@@ -2472,115 +2681,78 @@ class BrowserFileUpload(BrowserTask):
 
     .instruction {
       text-align: center;
-      font-size: 18px;
-      color: #666;
-      margin-bottom: 30px;
-    }
-
-    .required-file {
-      text-align: center;
-      padding: 15px;
-      background-color: #e3f2fd;
-      border: 2px solid #2196F3;
-      border-radius: 8px;
-      margin-bottom: 30px;
-    }
-
-    .required-file-label {
       font-size: 16px;
       color: #666;
-      margin-bottom: 5px;
-    }
-
-    .required-file-name {
-      font-size: 24px;
-      font-weight: bold;
-      color: #2196F3;
-    }
-
-    .file-list {
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      padding: 20px;
       margin-bottom: 30px;
-      max-height: 400px;
-      overflow-y: auto;
     }
 
-    .file-list-title {
-      font-size: 20px;
-      font-weight: bold;
-      margin-bottom: 15px;
-      color: #333;
-    }
-
-    .file-item {
-      padding: 15px;
-      margin: 10px 0;
-      border: 2px solid #ddd;
-      border-radius: 5px;
+    .file-input-area {
+      border: 3px dashed #ddd;
+      border-radius: 8px;
+      padding: 40px 20px;
+      text-align: center;
+      margin-bottom: 30px;
+      background-color: #fafafa;
       cursor: pointer;
       transition: all 0.3s;
-      display: flex;
-      align-items: center;
     }
 
-    .file-item:hover {
+    .file-input-area:hover {
       border-color: #2196F3;
       background-color: #f0f8ff;
     }
 
-    .file-item.selected {
+    .file-input-area.has-file {
       border-color: #4CAF50;
       background-color: #e8f5e9;
     }
 
     .file-icon {
-      font-size: 30px;
-      margin-right: 15px;
+      font-size: 48px;
+      margin-bottom: 15px;
     }
 
-    .file-info {
-      flex-grow: 1;
-    }
-
-    .file-name {
+    .file-label {
       font-size: 18px;
       font-weight: bold;
-      color: #333;
-      margin-bottom: 3px;
+      color: #666;
+      margin-bottom: 10px;
     }
 
-    .file-size {
+    .file-hint {
       font-size: 14px;
       color: #999;
+      margin-top: 10px;
     }
 
-    .selected-file-display {
+    #file-input {
+      display: none;
+    }
+
+    .selected-file {
       padding: 15px;
-      background-color: #f9f9f9;
-      border: 2px solid #ddd;
+      background-color: #e3f2fd;
+      border: 2px solid #2196F3;
       border-radius: 5px;
       margin-bottom: 20px;
-      min-height: 50px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: none;
     }
 
-    .selected-file-display.has-file {
-      background-color: #e8f5e9;
-      border-color: #4CAF50;
+    .selected-file.show {
+      display: block;
     }
 
-    .selected-text {
-      font-size: 16px;
+    .selected-file-label {
+      font-size: 14px;
       color: #666;
+      margin-bottom: 5px;
     }
 
-    .selected-text.has-file {
-      color: #2e7d32;
+    .selected-file-name {
+      font-size: 18px;
       font-weight: bold;
+      color: #2196F3;
+      word-break: break-all;
     }
 
     .upload-button {
@@ -2608,21 +2780,20 @@ class BrowserFileUpload(BrowserTask):
 </head>
 <body>
   <div class="upload-container">
-    <h1>📤 File Upload</h1>
-    <p class="instruction">Please select and upload the required file</p>
+    <h1>File Upload</h1>
+    <p class="instruction">Please select a file from Downloads folder and upload it</p>
 
-    <div class="required-file">
-      <div class="required-file-label">Required File:</div>
-      <div class="required-file-name" id="required-file"></div>
+    <div class="file-input-area" id="file-area" onclick="document.getElementById('file-input').click()">
+      <div class="file-icon">[FILE]</div>
+      <div class="file-label">Click to select file</div>
+      <div class="file-hint">Select from Downloads folder</div>
     </div>
 
-    <div class="file-list">
-      <div class="file-list-title">📁 Available Files</div>
-      <div id="files-container"></div>
-    </div>
+    <input type="file" id="file-input" accept="*/*">
 
-    <div class="selected-file-display" id="selected-display">
-      <span class="selected-text" id="selected-text">No file selected</span>
+    <div class="selected-file" id="selected-file">
+      <div class="selected-file-label">Selected File:</div>
+      <div class="selected-file-name" id="file-name"></div>
     </div>
 
     <button class="upload-button" id="upload-btn" disabled onclick="uploadFile()">
@@ -2631,119 +2802,42 @@ class BrowserFileUpload(BrowserTask):
   </div>
 
   <script>
-    class SeededRNG {
-      constructor(seed) {
-        this.seed = seed;
-      }
+    let selectedFileName = null;
 
-      random() {
-        const a = 1664525;
-        const c = 1013904223;
-        const m = 2 ** 32;
-        this.seed = (a * this.seed + c) % m;
-        return this.seed / m;
-      }
-    }
-
-    const rng = new SeededRNG(%%SEED%%);
-
-    // File names pool
-    const fileNames = [
-      'Project_Report.pdf',
-      'Quarterly_Results.xlsx',
-      'Meeting_Notes.docx',
-      'Budget_2024.pdf',
-      'Team_Photo.jpg',
-      'Presentation.pptx',
-      'Data_Analysis.csv',
-      'Contract_Draft.pdf',
-      'Invoice_12345.pdf',
-      'Product_Specs.docx',
-      'Marketing_Plan.pdf',
-      'Sales_Report.xlsx',
-      'Customer_List.csv',
-      'Design_Mockup.png',
-      'Training_Video.mp4'
-    ];
-
-    const fileIcons = {
-      'pdf': '📄',
-      'xlsx': '📊',
-      'docx': '📝',
-      'jpg': '🖼️',
-      'png': '🖼️',
-      'pptx': '📊',
-      'csv': '📋',
-      'mp4': '🎥'
-    };
-
-    const fileSizes = ['2.3 MB', '1.5 MB', '856 KB', '3.2 MB', '512 KB', '4.1 MB', '1.8 MB'];
-
-    // Shuffle file names
-    for (let i = fileNames.length - 1; i > 0; i--) {
-      const j = Math.floor(rng.random() * (i + 1));
-      [fileNames[i], fileNames[j]] = [fileNames[j], fileNames[i]];
-    }
-
-    // Select 8-10 random files to display
-    const numFiles = 8 + Math.floor(rng.random() * 3);
-    const availableFiles = fileNames.slice(0, numFiles);
-
-    // Select required file (one of the available files)
-    const requiredFileIndex = Math.floor(rng.random() * availableFiles.length);
-    const requiredFile = availableFiles[requiredFileIndex];
-
-    document.getElementById('required-file').textContent = requiredFile;
-
-    let selectedFile = null;
-
-    // Create file list
-    const filesContainer = document.getElementById('files-container');
-    availableFiles.forEach((fileName, index) => {
-      const fileExt = fileName.split('.').pop();
-      const fileIcon = fileIcons[fileExt] || '📄';
-      const fileSize = fileSizes[Math.floor(rng.random() * fileSizes.length)];
-
-      const fileItem = document.createElement('div');
-      fileItem.className = 'file-item';
-      fileItem.setAttribute('data-filename', fileName);
-      fileItem.innerHTML = `
-        <div class="file-icon">${fileIcon}</div>
-        <div class="file-info">
-          <div class="file-name">${fileName}</div>
-          <div class="file-size">${fileSize}</div>
-        </div>
-      `;
-
-      fileItem.addEventListener('click', function() {
-        // Remove selection from all files
-        document.querySelectorAll('.file-item').forEach(item => {
-          item.classList.remove('selected');
-        });
-
-        // Select this file
-        this.classList.add('selected');
-        selectedFile = fileName;
-
-        // Update selected display
-        const selectedDisplay = document.getElementById('selected-display');
-        const selectedText = document.getElementById('selected-text');
-        selectedDisplay.classList.add('has-file');
-        selectedText.classList.add('has-file');
-        selectedText.textContent = `Selected: ${fileName}`;
-
-        // Enable upload button
+    // Handle file selection
+    document.getElementById('file-input').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        selectedFileName = file.name;
+        
+        // Update UI
+        document.getElementById('file-area').classList.add('has-file');
+        document.getElementById('file-area').querySelector('.file-label').textContent = 'File selected';
+        
+        document.getElementById('selected-file').classList.add('show');
+        document.getElementById('file-name').textContent = selectedFileName;
+        
         document.getElementById('upload-btn').disabled = false;
-      });
-
-      filesContainer.appendChild(fileItem);
+      }
     });
 
     function uploadFile() {
-      if (selectedFile === requiredFile) {
-        document.body.innerHTML = '<h1>Success!</h1>';
-      } else {
-        alert(`Wrong file! Please select "${requiredFile}"`);
+      if (selectedFileName) {
+        // No normalization - file name characters are meaningful (use first 8 characters)
+        crypto.subtle.digest('SHA-256', new TextEncoder().encode(selectedFileName)).then(hashBuffer => {
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 8);
+          
+          document.body.innerHTML = `
+            <div style="padding: 20px; max-width: 600px; margin: 50px auto;">
+              <h1>Success!</h1>
+              <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <h2>File Uploaded Successfully!</h2>
+                <p style="font-family: monospace; word-break: break-all; font-size: 14px;">Verification: ${hash}</p>
+              </div>
+            </div>
+          `;
+        });
       }
     }
 
@@ -2752,6 +2846,30 @@ class BrowserFileUpload(BrowserTask):
   </script>
 </body>
 </html>"""
+
+  def is_successful(self, env: interface.AsyncEnv) -> float:
+    """Check if the correct file was uploaded."""
+    # First check parent class validation (Chrome app + "Success!" text)
+    if super().is_successful(env) == 0.0:
+      return 0.0
+    
+    # Calculate expected hash from the required file name (use first 8 characters)
+    # No normalization - file name characters are meaningful
+    expected_hash = hashlib.sha256(
+        self.params["required_file"].encode()
+    ).hexdigest()[:8]
+    
+    # Check if hash is displayed in UI
+    ui_elements = representation_utils.forest_to_ui_elements(
+        env.get_state().forest,
+        exclude_invisible_elements=False,
+    )
+    
+    for element in ui_elements:
+      if element.text and expected_hash in element.text:
+        return 1.0
+    
+    return 0.0
 
 
 class BrowserRetry(BrowserTask):
@@ -3126,11 +3244,11 @@ class BrowserRetry(BrowserTask):
           const rating = document.getElementById('rating').value;
           const comments = document.getElementById('comments').value;
           
-          // Calculate hash of all fields concatenated
+          // No normalization needed - all fields have meaningful characters (use first 8 characters)
           const dataString = name + '|' + email + '|' + rating + '|' + comments;
           crypto.subtle.digest('SHA-256', new TextEncoder().encode(dataString)).then(hashBuffer => {
             const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 8);
             
             document.body.innerHTML = `
               <div style="padding: 20px; max-width: 600px; margin: 50px auto;">
@@ -3176,14 +3294,15 @@ class BrowserRetry(BrowserTask):
     if super().is_successful(env) == 0.0:
       return 0.0
     
-    # Calculate expected hash from submitted data
+    # Calculate expected hash from submitted data (use first 8 characters)
+    # No normalization needed - all fields have meaningful characters
     data_string = (
         self.params["name"] + '|' +
         self.params["email"] + '|' +
         self.params["ranking"] + '|' +
         self.params["comments"]
     )
-    expected_hash = hashlib.sha256(data_string.encode()).hexdigest()
+    expected_hash = hashlib.sha256(data_string.encode()).hexdigest()[:8]
     
     # Check if hash is displayed in UI
     ui_elements = representation_utils.forest_to_ui_elements(
