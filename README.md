@@ -17,7 +17,7 @@
 
 ## 🚀 What's New in AndroidWorld+
 
-### 🌐 New Browser-Based Tasks
+### New Browser-Based Tasks
 
 - **BrowserSudoku** - Solve a 4×4 Sudoku puzzle by filling in empty cells with numbers 1-4, ensuring each row, column, and 2×2 box contains unique values
 - **BrowserSlider** - Precisely position a slider to match the exact target number shown at the top
@@ -27,6 +27,19 @@
 - **BrowserPopupDismiss** - Fill in a registration form with specific values and submit while dismissing appearing popup dialogs
 - **BrowserMultiStepForm** - Navigate through a 3-step registration form, filling in all required fields (name, email, phone, city, username, language, newsletter) across multiple steps
 - **BrowserFileUpload** - Click the file upload button, search for and select a specific file from the Downloads folder, then upload it
+
+### New Fine Control Tasks
+
+Fine control tasks require precise interaction with UI elements, demanding accurate cursor positioning, text selection, and timing control. These tasks test the agent's ability to perform delicate operations that go beyond simple clicks and text entry.
+
+- **ClockStopwatchLap** - Record a lap time on a running stopwatch by clicking the Lap button at the exact moment when the target time is reached
+- **CameraTakeVideoPrecise** - Record a video for exactly 10 seconds, requiring precise timing control to start and stop recording
+- **RetroMusicJumpToLyrics** - Navigate to a specific position in a music track by jumping to a specific lyric line, requiring fine control over the playback scrubber
+- **VlcSeekToTimestamp** - Jump to a specific timestamp position in a video playback, requiring precise control over the video seek bar
+- **SimpleCalendarTimePick** - Select an exact time using the time picker widget, requiring precise interaction with hour/minute spinners
+- **MarkorSpellCorrection** - Correct spelling errors in text by precisely selecting misspelled words and replacing them with correct spellings
+- **MarkorFormatWithLineBreaks** - Insert line breaks at specific character positions to format text into multiple lines, requiring exact cursor positioning
+- **MarkorReplaceSpecificWord** - Replace a specific occurrence of a word (e.g., a person's name) when the same word appears multiple times in the text, requiring precise text selection to avoid replacing other instances
 
 ### 🎯 Enhanced Task Directions
 
